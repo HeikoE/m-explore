@@ -294,7 +294,7 @@ void Explore::stop()
   exploring_timer_.stop();
   publishStatus("STOPPED");
   ROS_INFO("Exploration stopped.");
-  //TODO: Add publisher for communicating success or failure
+  ros::shutdown();
 }
 
 
