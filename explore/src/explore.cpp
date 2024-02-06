@@ -86,8 +86,8 @@ Explore::Explore()
       relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
                                [this](const ros::TimerEvent&) { makePlan(); });
 
-  abort_service_ = private_nh_.advertiseService("~abort", &Explore::abort, this);
-  status_pub_ = private_nh_.advertise<std_msgs::String>("~status", 0);
+  abort_service_ = private_nh_.advertiseService("abort", &Explore::abort, this);
+  status_pub_ = private_nh_.advertise<std_msgs::String>("status", 0);
 }
 
 Explore::~Explore()
