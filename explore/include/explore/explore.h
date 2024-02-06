@@ -48,6 +48,9 @@
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 
+#include "std_srvs/Trigger.h"
+#include "std_msgs/String.h"
+
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
 
@@ -66,6 +69,9 @@ public:
 
   void start();
   void stop();
+  bool abort(std_srvs::Trigger::Request &req,
+               std_srvs::Trigger::Response &res);
+  void publishStatus(const std::string& msg);
 
 private:
   /**
@@ -108,6 +114,11 @@ private:
   double potential_scale_, orientation_scale_, gain_scale_;
   ros::Duration progress_timeout_;
   bool visualize_;
+
+  // services
+  ros::ServiceServer abort_service_;
+  // publisher
+  ros::Publisher status_pub_;
 };
 }
 

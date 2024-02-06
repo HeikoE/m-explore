@@ -85,6 +85,9 @@ Explore::Explore()
   exploring_timer_ =
       relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
                                [this](const ros::TimerEvent&) { makePlan(); });
+
+  abort_service_ = private_nh_.advertiseService("~abort", &Explore::abort, this);
+  status_pub_ = private_nh_.advertise<std_msgs::String>("~status", 0);
 }
 
 Explore::~Explore()
@@ -289,7 +292,28 @@ void Explore::stop()
 {
   move_base_client_.cancelAllGoals();
   exploring_timer_.stop();
+  publishStatus("STOPPED");
   ROS_INFO("Exploration stopped.");
+  //TODO: Add publisher for communicating success or failure
+}
+
+
+bool Explore::abort(std_srvs::Trigger::Request &req,
+                         std_srvs::Trigger::Response &res) {
+    // Implement abort logic here
+    ROS_INFO("Abort service called");
+    stop();
+    
+    // Set the response
+    res.success = true; // or false depending on your logic
+    res.message = "Operation aborted successfully."; // customize message as needed
+    return true;
+}
+
+void Explore::publishStatus(const std::string& msg) {
+    std_msgs::String message;
+    message.data = msg;
+    status_pub_.publish(message);
 }
 
 }  // namespace explore
