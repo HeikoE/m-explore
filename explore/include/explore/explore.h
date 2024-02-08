@@ -50,6 +50,7 @@
 
 #include "std_srvs/Trigger.h"
 #include "std_msgs/String.h"
+#include "std_srvs/SetBool.h"
 
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
@@ -71,7 +72,14 @@ public:
   void stop();
   bool abort(std_srvs::Trigger::Request &req,
                std_srvs::Trigger::Response &res);
+  bool start(std_srvs::Trigger::Request &req,
+               std_srvs::Trigger::Response &res);
+  bool pause(std_srvs::SetBool::Request &req,
+                       std_srvs::SetBool::Response &res);
   void publishStatus(const std::string& msg);
+  bool abort_exploration_;
+  bool pause_exploration_;
+  bool start_exploration_;
 
 private:
   /**
@@ -114,9 +122,12 @@ private:
   double potential_scale_, orientation_scale_, gain_scale_;
   ros::Duration progress_timeout_;
   bool visualize_;
+  
 
   // services
   ros::ServiceServer abort_service_;
+  ros::ServiceServer pause_service_;
+  ros::ServiceServer start_service_;
   // publisher
   ros::Publisher status_pub_;
 };

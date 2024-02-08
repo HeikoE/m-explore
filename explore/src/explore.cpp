@@ -60,6 +60,9 @@ Explore::Explore()
 {
   double timeout;
   double min_frontier_size;
+  abort_exploration_ = false;
+  pause_exploration_ = false;
+  start_exploration_ = false;
   private_nh_.param("planner_frequency", planner_frequency_, 1.0);
   private_nh_.param("progress_timeout", timeout, 30.0);
   progress_timeout_ = ros::Duration(timeout);
@@ -84,10 +87,15 @@ Explore::Explore()
 
   exploring_timer_ =
       relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
-                               [this](const ros::TimerEvent&) { makePlan(); });
+                               [this](const ros::TimerEvent&) { makePlan(); }, false, false);
 
   abort_service_ = private_nh_.advertiseService("abort", &Explore::abort, this);
+  pause_service_ = private_nh_.advertiseService("pause", &Explore::pause, this);
+  start_service_ = private_nh_.advertiseService("start", &Explore::start, this);
+
   status_pub_ = private_nh_.advertise<std_msgs::String>("status", 0);
+  // Send first status msg
+  publishStatus("Standby");
 }
 
 Explore::~Explore()
@@ -142,9 +150,9 @@ void Explore::visualizeFrontiers(
     m.type = visualization_msgs::Marker::POINTS;
     m.id = int(id);
     m.pose.position = {};
-    m.scale.x = 0.1;
-    m.scale.y = 0.1;
-    m.scale.z = 0.1;
+    m.scale.x = 0.05;
+    m.scale.y = 0.05;
+    m.scale.z = 0.05;
     m.points = frontier.points;
     if (goalOnBlacklist(frontier.centroid)) {
       m.color = red;
@@ -181,6 +189,11 @@ void Explore::visualizeFrontiers(
 
 void Explore::makePlan()
 {
+  // return if pocess is paused
+  if(pause_exploration_) return;
+  // return if process is aborted
+  if(abort_exploration_) return;
+
   // find frontiers
   auto pose = costmap_client_.getRobotPose();
   // get frontiers sorted according to cost
@@ -190,7 +203,11 @@ void Explore::makePlan()
     ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
   }
 
+  //publish current exploration state (frontiers number)
+  publishStatus("Frontiers: "+std::to_string(frontiers.size()));
+
   if (frontiers.empty()) {
+    publishStatus("Done");
     stop();
     return;
   }
@@ -207,9 +224,11 @@ void Explore::makePlan()
                          return goalOnBlacklist(f.centroid);
                        });
   if (frontier == frontiers.end()) {
+    publishStatus("Done");
     stop();
     return;
   }
+
   geometry_msgs::Point target_position = frontier->centroid;
 
   // time out if we are not making any progress
@@ -286,28 +305,71 @@ void Explore::reachedGoal(const actionlib::SimpleClientGoalState& status,
 void Explore::start()
 {
   exploring_timer_.start();
+  ROS_INFO("Exploration started.");
+
 }
 
 void Explore::stop()
 {
-  move_base_client_.cancelAllGoals();
   exploring_timer_.stop();
-  publishStatus("STOPPED");
+  move_base_client_.cancelAllGoals();
   ROS_INFO("Exploration stopped.");
-  ros::shutdown();
+}
+
+
+bool Explore::start(std_srvs::Trigger::Request &req,
+                         std_srvs::Trigger::Response &res) {
+    ROS_INFO("Exploration start service called");
+    //start timer for exploration process if not started already
+    if(!start_exploration_)
+      start();
+    start_exploration_ = true;
+    
+    // Set the response
+    res.success = true;
+    res.message = "Exploration start successfully.";
+    return true;
 }
 
 
 bool Explore::abort(std_srvs::Trigger::Request &req,
                          std_srvs::Trigger::Response &res) {
-    // Implement abort logic here
-    ROS_INFO("Abort service called");
+    ROS_INFO("Exploration abort service called");
+    abort_exploration_ = true;
     stop();
+    publishStatus("Aborted");
     
     // Set the response
-    res.success = true; // or false depending on your logic
-    res.message = "Operation aborted successfully."; // customize message as needed
+    res.success = true; 
+    res.message = "Exploration aborted successfully.";
     return true;
+}
+
+
+bool Explore::pause(std_srvs::SetBool::Request &req,
+                                      std_srvs::SetBool::Response &res) {
+    if (req.data) {
+        pause_exploration_ = true;
+        // stop process timer
+        stop();
+        // Send status msg
+        publishStatus("Paused");
+        res.success = true;
+        res.message = "Successfully paused exploration process";
+    } else {
+        pause_exploration_ = false;
+        // start process timer
+        start();
+        //delete prev goal so the process will continue with last goal
+        geometry_msgs::Point point;
+        prev_goal_ = point;
+        //reset timer to define process timeout
+        last_progress_ = ros::Time::now();
+
+        res.success = true;
+        res.message = "Successfully unpaused ";
+    }
+    return true; // Indicate that the request was successfully processed
 }
 
 void Explore::publishStatus(const std::string& msg) {
@@ -321,10 +383,10 @@ void Explore::publishStatus(const std::string& msg) {
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "explore");
-  if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
-                                     ros::console::levels::Debug)) {
-    ros::console::notifyLoggerLevelsChanged();
-  }
+  // if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+  //                                    ros::console::levels::Debug)) {
+  //   ros::console::notifyLoggerLevelsChanged();
+  // }
   explore::Explore explore;
   ros::spin();
 
