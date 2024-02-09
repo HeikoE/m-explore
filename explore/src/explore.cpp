@@ -94,6 +94,8 @@ Explore::Explore()
   start_service_ = private_nh_.advertiseService("start", &Explore::start, this);
 
   status_pub_ = private_nh_.advertise<std_msgs::String>("status", 0);
+  cmdZero_pub_ = private_nh_.advertise<geometry_msgs::Twist>("/cmd_vel", 0);
+
   // Send first status msg
   publishStatus("Standby");
 }
@@ -312,8 +314,26 @@ void Explore::start()
 void Explore::stop()
 {
   exploring_timer_.stop();
+  pubCmdZero();
   move_base_client_.cancelAllGoals();
   ROS_INFO("Exploration stopped.");
+  pubCmdZero();
+}
+
+
+void Explore::pubCmdZero()
+{
+    geometry_msgs::Twist cmd;
+    // Initialize linear velocities to 0
+    cmd.linear.x = 0.0;
+    cmd.linear.y = 0.0;
+    cmd.linear.z = 0.0;
+    // Initialize angular velocities to 0
+    cmd.angular.x = 0.0;
+    cmd.angular.y = 0.0;
+    cmd.angular.z = 0.0;
+
+    cmdZero_pub_.publish(cmd);
 }
 
 

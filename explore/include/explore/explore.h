@@ -51,6 +51,7 @@
 #include "std_srvs/Trigger.h"
 #include "std_msgs/String.h"
 #include "std_srvs/SetBool.h"
+#include "geometry_msgs/Twist.h"
 
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
@@ -77,6 +78,7 @@ public:
   bool pause(std_srvs::SetBool::Request &req,
                        std_srvs::SetBool::Response &res);
   void publishStatus(const std::string& msg);
+  void pubCmdZero();
   bool abort_exploration_;
   bool pause_exploration_;
   bool start_exploration_;
@@ -130,6 +132,7 @@ private:
   ros::ServiceServer start_service_;
   // publisher
   ros::Publisher status_pub_;
+  ros::Publisher cmdZero_pub_;
 };
 }
 
